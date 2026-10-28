@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<!-- COCOMITalk - TTS声聴き比べテストツール -->
+<!-- このファイルはOpenAI TTSとVOICEVOX(tts.quest)の声を聞き比べて、三姉妹への声割り当てを確定する -->
+<!-- v1.0 2026-03-09 Step 5a -->
+<!-- v1.1 2026-03-09 VOICEVOX試聴セクション追加 -->
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎤 COCOMI Voice Test</title>
+<style>
+  /* v1.0 - ベーススタイル */
+  :root {
+    --bg: #0e0e12;
+    --card: #1a1a24;
+    --border: #2a2a3a;
+    --text: #e8e8f0;
+    --dim: #888899;
+    --koko: #FF6B9D; --gpt: #6B5CE7; --claude: #E6783E;
+    --accent: #00d4aa;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', 'Hiragino Kaku Gothic ProN', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 16px;
+    padding-bottom: 80px;
+  }
+
+  .header { text-align: center; padding: 20px 0 16px; }
+  .header h1 { font-size: 1.4em; letter-spacing: 0.05em; }
+  .header p { color: var(--dim); font-size: 0.85em; margin-top: 4px; }
+
+  .config-section { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .config-section h3 { font-size: 0.9em; color: var(--dim); margin-bottom: 10px; }
+  .config-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+  .config-row label { font-size: 0.85em; min-width: 50px; color: var(--dim); }
+  .config-row input[type="text"], .config-row input[type="range"] { flex: 1; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 8px; font-size: 0.85em; }
+  .config-row input[type="range"] { padding: 4px; }
+  .speed-val { font-size: 0.85em; min-width: 36px; text-align: center; color: var(--accent); }
+
+  /* テキスト入力 */
+  .text-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 10px;
+    font-size: 0.9em;
+    resize: vertical;
+    min-height: 60px;
+    font-family: inherit;
+  }
+
+  /* プリセットボタン */
+  .presets {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+  }
+  .preset-btn {
+    background: var(--border);
+    color: var(--text);
+    border: none;
+    border-radius: 16px;
+    padding: 6px 12px;
+    font-size: 0.75em;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .preset-btn:hover { background: var(--accent); color: var(--bg); }
+
+  /* 三姉妹候補カード */
+  .sister-cards {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .sister-card { background: var(--card); border: 2px solid var(--border); border-radius: 12px; padding: 16px; transition: border-color 0.3s; }
+  .sister-card.playing { animation: pulse-border 1s infinite; }
+  @keyframes pulse-border { 0%, 100% { border-color: var(--border); } 50% { border-color: var(--accent); } }
+  .sister-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .sister-avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2em; }
+  .sister-info h4 { font-size: 0.95em; }
+  .sister-info .voice-name { font-size: 0.8em; color: var(--dim); }
+  .sister-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .play-btn { padding: 8px 16px; border-radius: 8px; border: none; font-size: 0.85em; cursor: pointer; transition: all 0.2s; color: #fff; }
+  .play-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .stop-btn { background: #444; color: #fff; border: none; padding: 8px 12px; border-radius: 8px; font-size: 0.85em; cursor: pointer; }
+  .latency { font-size: 0.75em; color: var(--accent); margin-left: auto; }
+
+  .all-voices { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .all-voices h3 { font-size: 0.9em; color: var(--dim); margin-bottom: 12px; }
+  .voice-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .voice-btn { padding: 10px 8px; border-radius: 8px; border: 2px solid var(--border); background: var(--bg); color: var(--text); font-size: 0.8em; cursor: pointer; transition: all 0.2s; text-align: center; }
+  .voice-btn:hover { border-color: var(--accent); }
+  .voice-btn.playing { border-color: var(--accent); background: rgba(0, 212, 170, 0.1); }
+  .voice-btn .voice-label { font-weight: bold; }
+  .voice-btn .voice-latency { font-size: 0.7em; color: var(--dim); margin-top: 2px; }
+
+  .status-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--card); border-top: 1px solid var(--border); padding: 10px 16px; font-size: 0.8em; color: var(--dim); text-align: center; }
+  .status-bar.error { color: #ff6b6b; }
+  .status-bar.success { color: var(--accent); }
+
+  /* v1.1追加 - VOICEVOX試聴セクション */
+  .vv-section { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .vv-section h3 { font-size: 0.9em; color: var(--dim); margin-bottom: 8px; }
+  .vv-section .vv-note { font-size: 0.75em; color: var(--dim); margin-bottom: 12px; line-height: 1.5; }
+  .vv-api-key-row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+  .vv-api-key-row label { font-size: 0.85em; min-width: 60px; color: var(--dim); }
+  .vv-api-key-row input { flex: 1; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 8px; font-size: 0.85em; }
+  .vv-candidates { margin-bottom: 16px; }
+  .vv-candidates h4 { font-size: 0.85em; color: var(--accent); margin-bottom: 8px; }
+  .vv-char-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .vv-char-btn { padding: 10px; border-radius: 8px; border: 2px solid var(--border); background: var(--bg); color: var(--text); font-size: 0.8em; cursor: pointer; transition: all 0.2s; text-align: left; display: flex; flex-direction: column; gap: 2px; }
+  .vv-char-btn:hover { border-color: var(--accent); }
+  .vv-char-btn.playing { border-color: var(--accent); background: rgba(0, 212, 170, 0.1); }
+  .vv-char-btn .vv-name { font-weight: bold; font-size: 0.85em; }
+  .vv-char-btn .vv-style { font-size: 0.7em; color: var(--dim); }
+  .vv-char-btn .vv-lat { font-size: 0.7em; color: var(--accent); margin-top: 2px; }
+  .vv-assign-card { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 8px; }
+  .vv-assign-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .vv-assign-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1em; }
+  .vv-assign-name { font-size: 0.85em; font-weight: bold; }
+  .vv-assign-select { width: 100%; background: var(--card); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 8px; font-size: 0.8em; }
+  .vv-btn-row { display: flex; gap: 8px; margin-top: 8px; }
+  .vv-play-btn { flex: 1; padding: 8px; border-radius: 8px; border: none; font-size: 0.8em; cursor: pointer; color: #fff; transition: all 0.2s; }
+  .vv-play-btn:disabled { opacity: 0.5; }
+  .vv-all-btn { margin-top: 12px; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--accent); background: transparent; color: var(--accent); font-size: 0.85em; cursor: pointer; transition: all 0.2s; }
+  .vv-all-btn:hover { background: rgba(0, 212, 170, 0.1); }
+  .vv-speaker-list { margin-top: 12px; }
+  .vv-speaker-list h4 { font-size: 0.85em; color: var(--dim); margin-bottom: 8px; }
+  .vv-load-btn { padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 0.8em; cursor: pointer; margin-bottom: 10px; }
+  .vv-load-btn:hover { border-color: var(--accent); }
+  .vv-full-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; max-height: 300px; overflow-y: auto; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🎤 COCOMI Voice Test</h1>
+  <p>三姉妹の声を聴き比べよう</p>
+</div>
+
+<!-- 設定セクション -->
+<div class="config-section">
+  <h3>⚙️ 接続設定</h3>
+  <div class="config-row">
+    <label>Worker</label>
+    <input type="text" id="worker-url" placeholder="https://your-worker.workers.dev">
+  </div>
+  <div class="config-row">
+    <label>認証</label>
+    <input type="text" id="auth-token" placeholder="X-COCOMI-AUTH トークン">
+  </div>
+  <div class="config-row">
+    <label>速度</label>
+    <input type="range" id="speed" min="0.75" max="1.25" step="0.05" value="1.0">
+    <span class="speed-val" id="speed-val">1.0</span>
+  </div>
+</div>
+
+<!-- テキスト入力 -->
+<div class="config-section">
+  <h3>💬 読み上げテキスト</h3>
+  <textarea class="text-input" id="tts-text">こんにちは、アキちゃん。今日はどんなことを話そうか？</textarea>
+  <div class="presets">
+    <button class="preset-btn" data-text="こんにちは、アキちゃん。今日はどんなことを話そうか？">①挨拶</button>
+    <button class="preset-btn" data-text="この問題の構造は二層に分かれていて、ボトルネックは待ち時間と操作性だよ。">②論理</button>
+    <button class="preset-btn" data-text="それ、ちょっと不安だったよね。でも大丈夫、一緒に整理していこう。">③共感</button>
+    <button class="preset-btn" data-text="えっ、本当に？ それは嬉しいね。じゃあ次はもう少し丁寧に見ていこうか。">④感情</button>
+    <button class="preset-btn" data-text="みんなの意見をまとめると、論点は三つに集約できるね。">⑤会議</button>
+  </div>
+</div>
+
+<!-- 三姉妹候補カード -->
+<div class="sister-cards">
+  <!-- お姉ちゃん - nova -->
+  <div class="sister-card" id="card-nova">
+    <div class="sister-card-header">
+      <div class="sister-avatar" style="background:var(--gpt)">🌙</div>
+      <div class="sister-info">
+        <h4>お姉ちゃん候補</h4>
+        <div class="voice-name">nova — 落ち着いた温かみ</div>
+      </div>
+    </div>
+    <div class="sister-controls">
+      <button class="play-btn" style="background:var(--gpt)" onclick="playVoice('nova', this)">▶ nova</button>
+      <button class="stop-btn" onclick="stopAll()">⏹</button>
+      <span class="latency" id="lat-nova"></span>
+    </div>
+  </div>
+
+  <!-- クロちゃん - alloy -->
+  <div class="sister-card" id="card-alloy">
+    <div class="sister-card-header">
+      <div class="sister-avatar" style="background:var(--claude)">🔮</div>
+      <div class="sister-info">
+        <h4>クロちゃん候補</h4>
+        <div class="voice-name">alloy — ニュートラルでクリア</div>
+      </div>
+    </div>
+    <div class="sister-controls">
+      <button class="play-btn" style="background:var(--claude)" onclick="playVoice('alloy', this)">▶ alloy</button>
+      <button class="stop-btn" onclick="stopAll()">⏹</button>
+      <span class="latency" id="lat-alloy"></span>
+    </div>
+  </div>
+
+  <!-- ここちゃん - shimmer -->
+  <div class="sister-card" id="card-shimmer">
+    <div class="sister-card-header">
+      <div class="sister-avatar" style="background:var(--koko)">🌸</div>
+      <div class="sister-info">
+        <h4>ここちゃん候補</h4>
+        <div class="voice-name">shimmer — 柔らかく明るい</div>
+      </div>
+    </div>
+    <div class="sister-controls">
+      <button class="play-btn" style="background:var(--koko)" onclick="playVoice('shimmer', this)">▶ shimmer</button>
+      <button class="stop-btn" onclick="stopAll()">⏹</button>
+      <span class="latency" id="lat-shimmer"></span>
+    </div>
+  </div>
+</div>
+
+<!-- 全6voice比較 -->
+<div class="all-voices">
+  <h3>🔊 全6voice比較</h3>
+  <div class="voice-grid">
+    <button class="voice-btn" onclick="playVoice('alloy', this)">
+      <div class="voice-label">alloy</div>
+      <div class="voice-latency" id="lat2-alloy"></div>
+    </button>
+    <button class="voice-btn" onclick="playVoice('echo', this)">
+      <div class="voice-label">echo</div>
+      <div class="voice-latency" id="lat2-echo"></div>
+    </button>
+    <button class="voice-btn" onclick="playVoice('fable', this)">
+      <div class="voice-label">fable</div>
+      <div class="voice-latency" id="lat2-fable"></div>
+    </button>
+    <button class="voice-btn" onclick="playVoice('onyx', this)">
+      <div class="voice-label">onyx</div>
+      <div class="voice-latency" id="lat2-onyx"></div>
+    </button>
+    <button class="voice-btn" onclick="playVoice('nova', this)">
+      <div class="voice-label">nova</div>
+      <div class="voice-latency" id="lat2-nova"></div>
+    </button>
+    <button class="voice-btn" onclick="playVoice('shimmer', this)">
+      <div class="voice-label">shimmer</div>
+      <div class="voice-latency" id="lat2-shimmer"></div>
+    </button>
+  </div>
+</div>
+
+<!-- v1.1追加 - VOICEVOX試聴セクション -->
+<div class="vv-section">
+  <h3>🎀 VOICEVOX 声テスト（tts.quest API）</h3>
+  <p class="vv-note">
+    VOICEVOXの可愛い日本語ボイスを試聴できるよ！<br>
+    APIキーなしでも使える（低速モード）。高速にしたい場合はAPIキーを入力してね。<br>
+    ※Worker不要（フロントから直接アクセス）
+  </p>
+  <div class="vv-api-key-row">
+    <label>APIキー</label>
+    <input type="text" id="vv-api-key" placeholder="(なしでもOK・低速モード)">
+  </div>
+
+  <!-- 三姉妹候補キャラ（厳選） -->
+  <div class="vv-candidates">
+    <h4>🌸 ここちゃん候補（可愛い・元気系）</h4>
+    <div class="vv-char-grid">
+      <button class="vv-char-btn" onclick="playVV(3, this)">
+        <span class="vv-name">ずんだもん（ノーマル）</span>
+        <span class="vv-style">ID:3 — 定番の可愛い声</span>
+        <span class="vv-lat" id="vvlat-3"></span>
+      </button>
+      <button class="vv-char-btn" onclick="playVV(1, this)">
+        <span class="vv-name">ずんだもん（あまあま）</span>
+        <span class="vv-style">ID:1 — 甘え上手な声</span>
+        <span class="vv-lat" id="vvlat-1"></span>
+      </button>
+      <button class="vv-char-btn" onclick="playVV(22, this)">
+        <span class="vv-name">春日部つむぎ</span>
+        <span class="vv-style">ID:22 — 明るく元気</span>
+        <span class="vv-lat" id="vvlat-22"></span>
+      </button>
+      <button class="vv-char-btn" onclick="playVV(10, this)">
+        <span class="vv-name">ナースロボ＿タイプＴ（ノーマル）</span>
+        <span class="vv-style">ID:10 — 優しく穏やか</span>
+        <span class="vv-lat" id="vvlat-10"></span>
+      </button>
+    </div>
+  </div>
+
+  <div class="vv-candidates">
+    <h4>🌙 お姉ちゃん候補（知的・落ち着き系）</h4>
+    <div class="vv-char-grid">
+      <button class="vv-char-btn" onclick="playVV(2, this)">
+        <span class="vv-name">四国めたん（ノーマル）</span>
+        <span class="vv-style">ID:2 — 落ち着いた大人声</span>
+        <span class="vv-lat" id="vvlat-2"></span>
+      </button>
+      <button class="vv-char-btn" onclick="playVV(4, this)">
+        <span class="vv-name">四国めたん（セクシー）</span>
+        <span class="vv-style">ID:4 — 大人っぽい声</span>
+        <span class="vv-lat" id="vvlat-4"></span>
+      </button>
+      <button class="vv-char-btn" onclick="playVV(16, this)">
+        <span class="vv-name">九州そら（ノーマル）</span>
+        <span class="vv-style">ID:16 — 知的で清楚</span>
+        <span class="vv-lat" id="vvlat-16"></span>
+      </button>
+      <button class="vv-char-btn" onclick="playVV(14, this)">
+        <span class="vv-name">冥鳴ひまり</span>
+        <span class="vv-style">ID:14 — 落ち着いた優しい声</span>
+        <span class="vv-lat" id="vvlat-14"></span>
+      </button>
+    </div>
+  </div>
+
+  <div class="vv-candidates">
+    <h4>🔮 クロちゃん候補（クール・個性的系）</h4>
+    <div class="vv-char-grid">
+      <button class="vv-char-btn" onclick="playVV(0, this)">
+        <span class="vv-name">四国めたん（あまあま）</span>
+        <span class="vv-style">ID:0 — 甘めのお姉さん声</span>
+        <span class="vv-lat" id="vvlat-0"></span>
+      </button>
+      <button class="vv-char-btn" onclick="playVV(6, this)">
+        <span class="vv-name">ずんだもん（ツンツン）</span>
+        <span class="vv-style">ID:6 — ツンデレ系</span>
+        <span class="vv-lat" id="vvlat-6"></span>
+      </button>
+      <button class="vv-char-btn" onclick="playVV(23, this)">
+        <span class="vv-name">猫使アル（ノーマル）</span>
+        <span class="vv-style">ID:23 — ミステリアス系</span>
+        <span class="vv-lat" id="vvlat-23"></span>
+      </button>
+      <button class="vv-char-btn" onclick="playVV(46, this)">
+        <span class="vv-name">WhiteCUL（ノーマル）</span>
+        <span class="vv-style">ID:46 — クールで知的</span>
+        <span class="vv-lat" id="vvlat-46"></span>
+      </button>
+    </div>
+  </div>
+
+  <!-- 三姉妹割り当てテスト -->
+  <div style="margin-top:16px;">
+    <h4 style="font-size:0.85em; color:var(--accent); margin-bottom:8px;">✨ 三姉妹割り当てテスト</h4>
+    <p class="vv-note">好みのキャラを選んで割り当て、三姉妹まとめて聴いてみよう！</p>
+
+    <div class="vv-assign-card">
+      <div class="vv-assign-header">
+        <div class="vv-assign-avatar" style="background:var(--koko)">🌸</div>
+        <span class="vv-assign-name">ここちゃん</span>
+      </div>
+      <select class="vv-assign-select" id="vv-assign-koko">
+        <option value="3">ずんだもん（ノーマル）ID:3</option>
+        <option value="1">ずんだもん（あまあま）ID:1</option>
+        <option value="22">春日部つむぎ ID:22</option>
+        <option value="10">ナースロボ＿タイプＴ ID:10</option>
+      </select>
+      <div class="vv-btn-row">
+        <button class="vv-play-btn" style="background:var(--koko)" onclick="playVVAssign('koko')">▶ テスト</button>
+      </div>
+    </div>
+
+    <div class="vv-assign-card">
+      <div class="vv-assign-header">
+        <div class="vv-assign-avatar" style="background:var(--gpt)">🌙</div>
+        <span class="vv-assign-name">お姉ちゃん</span>
+      </div>
+      <select class="vv-assign-select" id="vv-assign-gpt">
+        <option value="2">四国めたん（ノーマル）ID:2</option>
+        <option value="4">四国めたん（セクシー）ID:4</option>
+        <option value="16">九州そら（ノーマル）ID:16</option>
+        <option value="14">冥鳴ひまり ID:14</option>
+      </select>
+      <div class="vv-btn-row">
+        <button class="vv-play-btn" style="background:var(--gpt)" onclick="playVVAssign('gpt')">▶ テスト</button>
+      </div>
+    </div>
+
+    <div class="vv-assign-card">
+      <div class="vv-assign-header">
+        <div class="vv-assign-avatar" style="background:var(--claude)">🔮</div>
+        <span class="vv-assign-name">クロちゃん</span>
+      </div>
+      <select class="vv-assign-select" id="vv-assign-claude">
+        <option value="0">四国めたん（あまあま）ID:0</option>
+        <option value="6">ずんだもん（ツンツン）ID:6</option>
+        <option value="23">猫使アル（ノーマル）ID:23</option>
+        <option value="46">WhiteCUL（ノーマル）ID:46</option>
+      </select>
+      <div class="vv-btn-row">
+        <button class="vv-play-btn" style="background:var(--claude)" onclick="playVVAssign('claude')">▶ テスト</button>
+      </div>
+    </div>
+
+    <button class="vv-all-btn" onclick="playVVAllSisters()">🎵 三姉妹まとめて聴く（順番に再生）</button>
+  </div>
+
+  <!-- 全話者リスト（APIから取得） -->
+  <div class="vv-speaker-list">
+    <h4>📋 全話者リスト</h4>
+    <button class="vv-load-btn" onclick="loadVVSpeakers()">話者一覧を取得</button>
+    <div class="vv-full-list" id="vv-full-list"></div>
+  </div>
+</div>
+
+<!-- ステータスバー -->
+<div class="status-bar" id="status">設定を入力して声をテストしてね</div>
+
+<script src="tts-test.js"></script>
+</body>
+</html>

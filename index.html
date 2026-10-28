@@ -1,0 +1,459 @@
+<!-- COCOMITalk - COCOMI Family AI会話アプリ -->
+<!-- v1.8 デザイントークン化Phase1 - design-tokens.css 追加 -->
+<!-- v1.8 2026-04-05 - ワイワイモード: スタイル切替ボタン + script追加 -->
+<!-- v1.9 2026-04-05 - エスケープハッチ追加 (Sprint 2+3統合) -->
+<!-- v2.0 2026-04-05 - ビジョンエンジンUI統合（カメラ起動/キャプチャ/切替） -->
+<!-- v2.1 2026-04-05 - ビジョンエンジン ズーム機能UI追加（スライダー1x〜4x） -->
+<!-- v2.1.1 2026-04-05 - ズームバー位置修正（wrapper外へ移動、scale影響回避） -->
+<!-- v2.2 2026-04-05 - 解像度切替ボタン追加（エコ/標準/高精細） -->
+<!-- v2.3 2026-04-06 - ビジョンエンジン ピント（オートフォーカス）ボタン追加 -->
+<!-- v2.4 2026-04-06 - お散歩モードUI追加 + vision-ui-controller.js追加 -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <!-- 作成: 葵(Aoi) / 最終更新: 葵(Aoi), 2026-10-28 （モデル3段階化: model-tiers.js等のscript追加／お散歩費用上限: walk-spend*.js追加／画面レイアウト: layout-*.css・layout-ui.js追加・設定sectionにid／レイアウトv2: layout2-*追加・model-indicatorの直書き文字を中立に） -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#FF6B9D">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>COCOMITalk</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎙️</text></svg>">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎙️</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="design-tokens.css">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="meeting-styles.css">
+  <link rel="stylesheet" href="meeting-archive-styles.css">
+  <link rel="stylesheet" href="memory-ui-styles.css">
+  <link rel="stylesheet" href="search-ui-styles.css">
+  <link rel="stylesheet" href="token-monitor-styles.css">
+  <!-- v1.7追加 - 相談トピック連携スタイル -->
+  <link rel="stylesheet" href="consultation-styles.css">
+  <!-- v2.2追加 - ビジョンエンジンスタイル -->
+  <link rel="stylesheet" href="vision-styles.css">
+  <!-- v3.67追加 - 画面レイアウト改善（最後に読み込んで上書き。外せば元の見た目に戻る） -->
+  <link rel="stylesheet" href="layout-main.css">
+  <link rel="stylesheet" href="layout-panels.css">
+  <link rel="stylesheet" href="layout2-main.css">
+  <link rel="stylesheet" href="layout2-panels.css">
+</head>
+<body>
+
+  <!-- ========== スプラッシュ画面 ========== -->
+  <div id="splash-screen" class="splash">
+    <div class="splash-content">
+      <div class="splash-logo">🎙️</div>
+      <h1 class="splash-title">COCOMITalk</h1>
+      <p class="splash-subtitle">COCOMI Family と話そう</p>
+      <div class="splash-dots">
+        <span class="dot dot-koko"></span>
+        <span class="dot dot-gpt"></span>
+        <span class="dot dot-claude"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== メインアプリ ========== -->
+  <div id="app" class="app hidden">
+    <header class="app-header">
+      <div class="header-left">
+        <span class="header-logo">🎙️</span>
+        <span class="header-title">COCOMITalk</span>
+      </div>
+      <div class="header-right">
+        <!-- v1.8追加 - ワイワイモード: スタイル切替ボタン -->
+        <button id="btn-style" class="btn-style" title="会話スタイル切替">💬 じっくり</button>
+        <button id="btn-mode" class="mode-btn" data-mode="normal" aria-label="モード切替">💬 普段</button>
+        <button id="btn-people" class="people-btn" data-people="solo" aria-label="人数切替" title="1対1モード">👤</button>
+        <button id="btn-settings" class="icon-btn" aria-label="設定">⚙️</button>
+      </div>
+    </header>
+    <nav class="sister-tabs">
+      <button class="tab active" data-sister="koko">
+        <span class="tab-icon">🌸</span>
+        <span class="tab-name">ここちゃん</span>
+      </button>
+      <button class="tab" data-sister="gpt">
+        <span class="tab-icon">🌙</span>
+        <span class="tab-name">お姉ちゃん</span>
+      </button>
+      <button class="tab" data-sister="claude">
+        <span class="tab-icon">🔮</span>
+        <span class="tab-name">クロちゃん</span>
+      </button>
+    </nav>
+    <main id="chat-area" class="chat-area">
+      <div id="welcome-msg" class="welcome">
+        <div class="welcome-icon">🌸</div>
+        <p class="welcome-text">ここちゃんとお話ししよう！</p>
+        <p class="welcome-hint">下のメッセージ欄に話しかけてね</p>
+      </div>
+    </main>
+    <!-- ========== v2.0追加 - ビジョンエンジンUI ========== -->
+    <div id="vision-panel" class="vision-panel hidden">
+      <div class="vision-preview-wrapper">
+        <video id="vision-preview" class="vision-preview" playsinline autoplay muted></video>
+        <div class="vision-controls">
+          <button id="btn-vision-walk" class="vision-btn vision-btn-walk" aria-label="お散歩モード" title="🚶 お散歩モード（長押しで間隔変更）">🚶</button>
+          <button id="btn-vision-focus-capture" class="vision-btn vision-btn-focus" aria-label="ピント合わせてキャプチャ" title="📌 ピントを合わせてからキャプチャ">📌</button>
+          <button id="btn-vision-capture" class="vision-btn vision-btn-capture" aria-label="キャプチャ" title="📸 今の映像をキャプチャ">📸</button>
+          <button id="btn-vision-switch" class="vision-btn vision-btn-switch" aria-label="カメラ切替" title="🔄 前面/背面カメラ切替">🔄</button>
+        </div>
+      </div>
+      <!-- v2.2更新 - ズームバー＋解像度切替 -->
+      <div class="vision-zoom-bar">
+        <span id="vision-focus-indicator" class="vision-focus-indicator" title="フォーカス状態">AF</span>
+        <button id="btn-vision-resolution" class="vision-resolution-btn" aria-label="解像度切替" title="解像度切替">🌿エコ</button>
+        <span class="vision-zoom-label">🔍</span>
+        <input type="range" id="vision-zoom-slider" class="vision-zoom-slider"
+               min="1.0" max="4.0" step="0.1" value="1.0">
+        <span id="vision-zoom-value" class="vision-zoom-value">1.0x</span>
+        <span id="vision-walk-status" class="vision-walk-status hidden"></span>
+        <span id="walk-spend-badge" class="hidden" role="button" tabindex="0" title="お散歩の費用（概算）"></span>
+      </div>
+    </div>
+    <footer class="input-area">
+      <div id="doc-gen-status" class="doc-gen-status hidden"></div>
+      <div id="file-preview" class="file-preview hidden"></div>
+      <div class="input-wrapper">
+        <button id="btn-vision-toggle" class="btn-vision-toggle" aria-label="カメラON/OFF" title="📷 カメラを起動">
+          <span>📷</span>
+        </button>
+        <button id="btn-attach" class="btn-attach" aria-label="ファイル添付" title="📎 ファイルを添付">
+          <span>📎</span>
+        </button>
+        <input type="file" id="file-input" class="hidden" accept=".md,.txt,.js,.json,.css,.html,.csv,.yml,.yaml,.xml,.py,.sh,.toml,.jpg,.jpeg,.png,.webp,.gif">
+        <textarea id="msg-input" class="msg-input" placeholder="メッセージを入力..." rows="1" maxlength="4000"></textarea>
+        <button id="btn-send" class="btn-send" aria-label="送信" disabled>
+          <span class="send-arrow">↑</span>
+        </button>
+        <button id="btn-continue-talk" class="btn-continue-talk hidden" aria-label="みんなで話して" title="姉妹たちだけで会話を続ける">
+          <span>🔄</span>
+        </button>
+        <!-- v1.8追加 Phase 2a: 検索ボタン -->
+        <button id="btn-search" class="btn-search" aria-label="検索" title="🔍 ウェブ検索">🔍</button>
+      </div>
+      <div class="input-footer">
+        <span id="model-indicator" class="model-indicator">…</span>
+        <button id="btn-generate-doc" class="btn-download" aria-label="指示書生成" title="📋 指示書を自動生成">📋</button>
+        <button id="btn-download" class="btn-download" aria-label="会話を保存" title="💾 会話をダウンロード">💾</button>
+        <span id="token-cost" class="token-cost" title="今月のトークン使用量">--</span>
+        <span id="char-count" class="char-count"></span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- ========== 会議専用画面 ========== -->
+  <div id="meeting-screen" class="meeting-screen hidden">
+    <header class="meeting-header">
+      <div class="header-left">
+        <span class="header-logo">🏛️</span>
+        <span class="header-title">COCOMITalk 会議室</span>
+      </div>
+      <div class="header-right">
+        <button id="btn-meeting-archive" class="icon-btn" aria-label="過去の会議" title="過去の会議">📂</button>
+        <button id="btn-meeting-minutes" class="icon-btn" aria-label="議事録DL" title="議事録DL" disabled>📝</button>
+        <button id="btn-meeting-doc" class="icon-btn" aria-label="指示書生成" title="指示書生成" disabled>📋</button>
+        <button id="btn-meeting-settings" class="icon-btn" aria-label="設定" title="設定">⚙️</button>
+        <button id="btn-meeting-close" class="icon-btn" aria-label="会議画面を閉じる" title="会議画面を閉じる">✕</button>
+      </div>
+    </header>
+    <main class="meeting-chat"></main>
+    <div id="meeting-archive" class="meeting-archive hidden">
+      <div class="archive-header">
+        <h2>📂 過去の会議</h2>
+        <button id="btn-archive-close" class="icon-btn" aria-label="閉じる">✕</button>
+      </div>
+      <div id="archive-list" class="archive-list">
+        <p class="archive-empty">まだ会議の記録がありません</p>
+      </div>
+    </div>
+    <footer class="meeting-input-area">
+      <!-- v2.95追加 - 会議グレード選択 -->
+      <div class="meeting-grade-bar" style="display:flex;align-items:center;gap:6px;padding:4px 12px;font-size:12px;color:#888;">
+        <label for="meeting-grade-select">会議モード:</label>
+        <select id="meeting-grade-select" style="font-size:12px;padding:2px 6px;border:1px solid #ddd;border-radius:6px;background:#fff;color:#555;cursor:pointer;">
+          <option value="meeting-lite">💬 ライト</option>
+          <option value="meeting" selected>📋 スタンダード</option>
+          <option value="meeting-full">🔥 フル会議</option>
+        </select>
+      </div>
+      <!-- v2.90追加 - 会議用ファイルプレビュー -->
+      <div id="meeting-file-preview" class="file-preview hidden"></div>
+      <div class="input-wrapper">
+        <!-- v2.90追加 - 会議用📎ボタン＋file input -->
+        <button id="btn-meeting-attach" class="btn-attach" aria-label="ファイル添付" title="📎 ファイルを添付">
+          <span>📎</span>
+        </button>
+        <input type="file" id="meeting-file-input" class="hidden" multiple accept=".md,.txt,.js,.json,.css,.html,.csv,.yml,.yaml,.xml,.py,.sh,.toml,.jpg,.jpeg,.png,.webp,.gif">
+        <textarea class="meeting-topic-input" placeholder="議題を入力してください..." rows="1" maxlength="2000"></textarea>
+        <button id="btn-meeting-start" class="btn-send" aria-label="会議開始">
+          <span class="send-arrow">▶</span>
+        </button>
+        <!-- v1.6追加 Step 5c: 会議用マイクボタン -->
+        <button id="btn-meeting-mic" class="cocomi-mic-btn" aria-label="音声入力" style="width:36px;height:36px;border-radius:50%;border:2px solid var(--active-primary,#6c5ce7);background:white;font-size:18px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:0;transition:all 0.2s ease;">🎤</button>
+      </div>
+      <!-- v1.6改善 - ラウンド完了後のアクション（わかりやすいガイド付き） -->
+      <div class="meeting-actions hidden">
+        <p id="meeting-action-guide" class="meeting-action-guide">✅ ラウンド完了！次はどうする？</p>
+        <div class="meeting-action-row">
+          <button id="btn-meeting-continue" class="meeting-action-btn meeting-btn-continue">🔄 追加指示して続ける</button>
+          <button id="btn-meeting-end" class="meeting-action-btn meeting-btn-end">✕ 会議終了</button>
+        </div>
+      </div>
+    </footer>
+    <!-- v1.6追加 - 会議確認ダイアログ -->
+    <div id="meeting-confirm-dialog" class="meeting-confirm-dialog hidden">
+      <div class="meeting-confirm-overlay"></div>
+      <div class="meeting-confirm-box">
+        <p id="meeting-confirm-msg" class="meeting-confirm-msg"></p>
+        <div class="meeting-confirm-btns">
+          <button id="btn-confirm-yes" class="meeting-action-btn meeting-btn-continue"></button>
+          <button id="btn-confirm-no" class="meeting-action-btn meeting-btn-end"></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 設定モーダル ========== -->
+  <div id="settings-modal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>⚙️ 設定</h2>
+        <button id="btn-close-settings" class="icon-btn">✕</button>
+      </div>
+      <div class="modal-body">
+        <section id="sec-auth" class="settings-section">
+          <h3>🔑 認証</h3>
+          <div class="setting-item">
+            <label for="key-gemini">COCOMI認証トークン</label>
+            <input type="password" id="key-gemini" placeholder="cocomi-...">
+            <p class="setting-hint">Worker経由で全API共通の認証トークン</p>
+          </div>
+        </section>
+        <section id="sec-models" class="settings-section">
+          <h3>🤖 モデル設定</h3>
+          <div id="model-settings-area"></div>
+          <button id="btn-reset-models" class="btn-secondary" style="margin-top:12px;">デフォルトに戻す</button>
+        </section>
+        <button id="btn-save-settings" class="btn-primary">保存する</button>
+        <section id="sec-voice" class="settings-section" style="margin-top:24px;">
+          <h3>🎤 音声設定</h3>
+          <div class="setting-item">
+            <label class="setting-toggle">
+              <input type="checkbox" id="chk-handsfree">
+              <span>ハンズフリーモード（声の再生後に自動でマイクON）</span>
+            </label>
+          </div>
+          <div class="setting-item">
+            <label class="setting-toggle">
+              <input type="checkbox" id="chk-stt-debug">
+              <span>STTデバッグパネル表示</span>
+            </label>
+          </div>
+          <div class="setting-item" style="margin-top:12px;">
+            <label style="font-size:0.85em; color:#888;">STT音声認識エンジン</label>
+            <select id="sel-stt-provider" style="width:100%; margin-top:4px; padding:8px; border-radius:8px; border:1px solid #333; background:#1a1a24; color:#e8e8f0; font-size:0.85em;">
+              <option value="webspeech">Web Speech API（無料・ブラウザ内蔵）</option>
+              <option value="whisper">Whisper API（高精度・ピコン音なし）</option>
+            </select>
+          </div>
+          <!-- v3.63追加 - 文字起こしモデルと区切り秒数（stt-model.js） -->
+          <div class="setting-item" style="margin-top:12px;">
+            <label style="font-size:0.85em; color:#888;">文字起こしモデル（Whisper API選択時）</label>
+            <select id="sel-stt-model" style="width:100%; margin-top:4px; padding:8px; border-radius:8px; border:1px solid #333; background:#1a1a24; color:#e8e8f0; font-size:0.85em;">
+              <option value="gpt-transcribe">gpt-transcribe（新・$0.0045/分）</option>
+              <option value="whisper-1">whisper-1（旧・$0.006/分・2027-02-26で停止）</option>
+            </select>
+            <label style="font-size:0.85em; color:#888; display:block; margin-top:8px;">発話の区切り（無音の長さ）</label>
+            <select id="sel-stt-silence" style="width:100%; margin-top:4px; padding:8px; border-radius:8px; border:1px solid #333; background:#1a1a24; color:#e8e8f0; font-size:0.85em;">
+              <option value="3000">3秒（標準）</option>
+              <option value="4000">4秒（文の途中で切れにくい）</option>
+              <option value="5000">5秒（さらに切れにくい・反応は遅め）</option>
+            </select>
+          </div>
+          <div class="setting-item" style="margin-top:12px;">
+            <label style="font-size:0.85em; color:#888;">TTS声エンジン</label>
+            <select id="sel-tts-provider" style="width:100%; margin-top:4px; padding:8px; border-radius:8px; border:1px solid #333; background:#1a1a24; color:#e8e8f0; font-size:0.85em;">
+              <option value="gemini">Gemini TTS（標準・5人の声。場面で口調が変わる）</option>
+              <option value="openai">OpenAI TTS（控え・Geminiが失敗した時の戻り先）</option>
+              <option value="voicevox">VOICEVOX（控え・日本語可愛い声）</option>
+            </select>
+            <label style="font-size:0.85em; color:#888; display:block; margin-top:8px;">Gemini TTSの品質</label>
+            <select id="sel-gemini-tts-quality" style="width:100%; margin-top:4px; padding:8px; border-radius:8px; border:1px solid #333; background:#1a1a24; color:#e8e8f0; font-size:0.85em;">
+              <option value="lite">Flash-Lite（日常・散歩向け・安い）</option>
+              <option value="flash">Flash（高音質・やや高い）</option>
+            </select>
+          </div>
+          <div id="vv-key-setting" style="display:none; margin-top:8px;">
+            <label style="font-size:0.85em; color:#888;">VOICEVOX APIキー（なしでもOK）</label>
+            <input type="text" id="vv-api-key-main" placeholder="tts.quest APIキー（低速モードはなしでOK）" style="width:100%; margin-top:4px; padding:8px; border-radius:8px; border:1px solid #333; background:#1a1a24; color:#e8e8f0; font-size:0.85em;">
+          </div>
+          <!-- v1.6追加 - 話すスピード調整 -->
+          <div class="setting-item" style="margin-top:12px;">
+            <label style="font-size:0.85em; color:#888;">話すスピード: <span id="tts-speed-label">1.0x</span></label>
+            <input type="range" id="range-tts-speed" min="0.75" max="1.5" step="0.05" value="1.0" style="width:100%; margin-top:4px; accent-color:var(--active-primary,#6c5ce7);">
+            <div style="display:flex; justify-content:space-between; font-size:0.75em; color:#666;">
+              <span>ゆっくり 0.75x</span><span>普通 1.0x</span><span>はやい 1.5x</span>
+            </div>
+          </div>
+        </section>
+        <section id="sec-memory" class="settings-section" style="margin-top:24px;">
+          <h3>🧠 記憶管理（KV）</h3>
+          <p style="font-size:0.82rem;color:#888;margin:0 0 8px;">会議のAI要約記憶を確認・削除できます</p>
+          <button id="btn-open-memory-ui" class="btn-secondary" style="width:100%;">🧠 記憶管理を開く</button>
+          <button id="btn-open-memory-import" class="btn-secondary" style="width:100%;margin-top:8px;">📁 記憶インポート</button>
+        </section>
+        <section id="sec-history" class="settings-section" style="margin-top:24px;">
+          <h3>🗑️ 会話履歴</h3>
+          <button id="btn-clear-history" class="btn-danger">全ての会話履歴をクリア</button>
+        </section>
+        <section id="sec-walk" class="settings-section" style="margin-top:24px;">
+          <h3>🚶 お散歩の費用上限（概算）</h3>
+          <div id="walk-spend-area">読み込み中...</div>
+        </section>
+        <section id="sec-tokens" class="settings-section" style="margin-top:24px;">
+          <h3>📊 トークン使用量</h3>
+          <div id="token-detail-area">読み込み中...</div>
+          <button id="btn-clear-tokens" class="btn-danger" style="margin-top:12px;">使用量データをリセット</button>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 検索モーダル（Phase 2a） ========== -->
+  <div id="search-modal" class="search-modal hidden">
+    <div class="search-modal-content">
+      <div class="search-modal-header">
+        <h3>🔍 ウェブ検索</h3>
+        <button id="btn-search-close" class="search-close-btn" aria-label="閉じる">✕</button>
+      </div>
+      <div class="search-input-area">
+        <input type="text" id="search-query-input" class="search-query-input" placeholder="検索キーワードを入力..." maxlength="200">
+        <button id="btn-search-exec" class="btn-search-exec">検索</button>
+      </div>
+      <div id="search-results" class="search-results"></div>
+    </div>
+  </div>
+
+  <!-- ========== メモリー管理オーバーレイ ========== -->
+  <div id="memory-manager" class="memory-manager hidden">
+    <div class="memory-header">
+      <h2>🧠 記憶管理</h2>
+      <div class="memory-header-right">
+        <span id="memory-count"></span>
+        <button id="btn-memory-delete-all" class="memory-delete-all-btn" aria-label="全件削除">🗑️全削除</button>
+        <button id="btn-memory-close" class="icon-btn" aria-label="閉じる">✕</button>
+      </div>
+    </div>
+    <div class="memory-search-bar">
+      <input type="text" id="memory-search-input" placeholder="🔍 記憶を検索（議題・要約・決定事項）" autocomplete="off">
+    </div>
+    <!-- v1.2追加 - 期間指定削除 -->
+    <div class="memory-period-bar">
+      <select id="memory-period-select" class="memory-period-select">
+        <option value="0">期間を選択...</option>
+        <option value="7">1週間前より古い</option>
+        <option value="14">2週間前より古い</option>
+        <option value="30">1ヶ月前より古い</option>
+        <option value="90">3ヶ月前より古い</option>
+      </select>
+      <button id="btn-memory-delete-period" class="memory-delete-period-btn">🗑️ 期間削除</button>
+    </div>
+    <div id="memory-list" class="memory-list">
+      <p class="memory-empty">まだ記憶がありません</p>
+    </div>
+  </div>
+  <!-- メモリー詳細パネル（モーダル） -->
+  <div id="memory-detail" class="memory-detail hidden"></div>
+
+  <!-- スクリプト読み込み -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+  <script src="tone-style.js"></script>
+  <script src="prompts/common-env.js"></script>
+  <script src="prompts/koko-system.js"></script>
+  <script src="prompts/gpt-system.js"></script>
+  <script src="prompts/claude-system.js"></script>
+  <script src="prompts/aoi-system.js"></script>
+  <script src="prompts/kimi-system.js"></script>
+  <!-- v2.x 2026-10-28 追加 - モデル3段階・キャラ登録簿・設定移行（mode-switcher/api-*より前に読む） -->
+  <script src="model-tiers.js"></script>
+  <script src="model-effort.js"></script>
+  <script src="characters.js"></script>
+  <script src="model-migration.js"></script>
+  <script src="api-common.js"></script>
+  <script src="api-gemini.js"></script>
+  <script src="api-openai.js"></script>
+  <script src="api-openai-responses.js"></script>
+  <script src="api-claude.js"></script>
+  <!-- step2: 葵(xAI)・きみ(Kimi)用。キャラ登録簿が無効の間は呼ばれない -->
+  <script src="api-compat-core.js"></script>
+  <script src="api-xai.js"></script>
+  <script src="api-kimi.js"></script>
+  <script src="chat-history.js"></script>
+  <script src="token-monitor.js"></script>
+  <script src="file-handler.js"></script>
+  <script src="doc-generator.js"></script>
+  <script src="mode-switcher.js"></script>
+  <script src="walk-spend-core.js"></script>
+  <script src="walk-spend.js"></script>
+  <script src="meeting-router.js"></script>
+  <script src="meeting-history.js"></script>
+  <script src="meeting-memory.js"></script>
+  <script src="chat-memory.js"></script>
+  <script src="meeting-relay.js"></script>
+  <script src="meeting-doc-actions.js"></script>
+  <script src="meeting-ui.js"></script>
+  <script src="meeting-archive-ui.js"></script>
+  <script src="memory-ui.js"></script>
+  <script src="memory-import-ui.js"></script>
+  <script src="search-ui.js"></script>
+  <script src="search-caller.js"></script>
+  <script src="tool-registry.js"></script>
+  <script src="prompt-builder.js"></script>
+  <!-- v1.8追加 - ワイワイモード: スタイル定義 + 判定ロジック -->
+  <script src="chat-style-modes.js"></script>
+  <script src="style-resolver.js"></script>
+  <!-- v1.9追加 - エスケープハッチ検出 (Sprint 2+3統合) -->
+  <script src="escape-hatch-detector.js"></script>
+  <!-- v2.0追加 - ビジョンエンジン（三姉妹の目） -->
+  <script src="vision-engine.js"></script>
+  <!-- v2.4追加 - ビジョンUIコントローラー（カメラUI + お散歩モード） -->
+  <script src="vision-ui-controller.js"></script>
+  <!-- v1.7追加 - 相談トピック連携UI -->
+  <script src="consultation-ui.js"></script>
+  <script src="meeting-voice.js"></script>
+  <script src="chat-group.js"></script>
+  <script src="chat-ui.js"></script>
+  <script src="chat-core.js"></script>
+  <!-- Step 5b: 音声会話モジュール v1.1 -->
+  <script src="tts-provider.js"></script>
+  <script src="openai-tts-provider.js"></script>
+  <script src="gemini-tts-provider.js"></script>
+  <script src="voicevox-tts-provider.js"></script>
+  <script src="speech-provider.js"></script>
+  <script src="web-speech-provider.js"></script>
+  <script src="debug-logger.js"></script>
+  <script src="stt-model.js"></script>
+  <script src="whisper-provider.js"></script>
+  <script src="voice-output.js"></script>
+  <script src="voice-ui.js"></script>
+  <script src="audio-health.js"></script>
+  <script src="voice-state.js"></script>
+  <script src="voice-command.js"></script>
+  <script src="voice-input.js"></script>
+  <script src="voice-sender.js"></script>
+  <script src="effort-settings-ui.js"></script>
+  <script src="walk-spend-ui.js"></script>
+  <script src="layout-ui.js"></script>
+  <script src="layout2-core.js"></script>
+  <script src="layout2-ui.js"></script>
+  <script src="app-settings.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

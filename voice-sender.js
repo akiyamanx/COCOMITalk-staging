@@ -1,0 +1,158 @@
+// voice-sender.js v1.2
+// このファイルはVoiceControllerの送信処理メソッドを外部ファイルに分離したもの
+// voice-input.jsの行数削減のため、mixinパターンでVoiceController.prototypeに注入
+// voice-input.jsより後に読み込むこと（VoiceControllerクラスが先に定義されている必要あり）
+
+// v1.0 新規作成 - voice-input.js v1.8.3から送信処理を分離（mixin方式）
+// v1.0.1 修正 - 会議マイクもリングウェーブ＋呼吸グローデザインに対応
+// v1.1 2026-07-17 - isVoiceTurnBusy()/getVoiceTurnBusyReason()をmixin追加（お散歩ゲートPoC A。voice-input.jsが既に516行=500行ルール超過のため、行数削減の先例に倣い本ファイルへ配置）
+// v1.2 2026-07-17 - バッファ待ち窓(認識済みテキストの送信待ち約4秒)もbusy扱いに追加（Day117実測: 20:34:44に画像ターンが割り込みアキヤの発話が入力欄に取り残された事故の修正）
+
+/**
+ * VoiceControllerに送信系メソッドをmixin注入
+ * voice-input.jsでクラス定義 → voice-sender.jsでメソッド追加
+ * thisはVoiceControllerインスタンスを指すので、全プロパティにアクセス可能
+ */
+
+// ═══════════════════════════════════════════
+// 送信処理（voice-input.js v1.8.3から移植）
+// ═══════════════════════════════════════════
+
+/** 音声メッセージの送信（コマンド判定→送信） */
+VoiceController.prototype._sendVoiceMessage = function(text) {
+  try {
+    // 音声コマンドチェック
+    if (this._voiceCmd && this._voiceCmd.handle(text)) return;
+
+    // 通常メッセージ送信（v1.7の実績あるロジックに戻し）
+    this._ui.hideInterim();
+    this._lastText = '';
+
+    const inMeeting = typeof MeetingUI !== 'undefined' && MeetingUI.getIsVisible();
+    if (inMeeting) {
+      this._sendToMeeting(text);
+    } else {
+      this._sendToNormalChat(text);
+    }
+  } catch (e) {
+    console.error('[Voice] _sendVoiceMessage エラー:', e);
+    this._forceIdleState();
+    this._ui.showStatus('送信エラーが発生しました', 'error');
+  }
+};
+
+/** 通常チャットへの音声送信（v1.7実績ロジック） */
+VoiceController.prototype._sendToNormalChat = function(text) {
+  const input = document.getElementById('msg-input');
+  if (!input) {
+    console.error('[Voice] #msg-input が見つかりません');
+    this._forceIdleState();
+    return;
+  }
+  input.value = text;
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  setTimeout(() => {
+    const sendBtn = document.getElementById('btn-send');
+    if (sendBtn && !sendBtn.disabled) {
+      sendBtn.click();
+      console.log('[Voice] 通常チャット音声送信完了');
+    } else {
+      const event = new KeyboardEvent('keydown', {
+        key: 'Enter', code: 'Enter',
+        keyCode: 13, which: 13, bubbles: true
+      });
+      input.dispatchEvent(event);
+    }
+    this._ui.updateMicState('idle');
+    this._updateMeetingMicState('idle');
+  }, 50);
+};
+
+/** 会議モードへの音声送信（v1.7実績ロジック） */
+VoiceController.prototype._sendToMeeting = function(text) {
+  const topicInput = document.querySelector('.meeting-topic-input');
+  if (!topicInput) {
+    console.error('[Voice] .meeting-topic-input が見つかりません');
+    this._forceIdleState();
+    return;
+  }
+  topicInput.value = text;
+  topicInput.dispatchEvent(new Event('input', { bubbles: true }));
+  setTimeout(() => {
+    const isRunning = typeof MeetingRelay !== 'undefined' && MeetingRelay.getCurrentRound() > 0;
+    if (isRunning) {
+      const btnContinue = document.getElementById('btn-meeting-continue');
+      if (btnContinue) { btnContinue.click(); console.log('[Voice] 会議追加ラウンド音声送信完了'); }
+    } else {
+      const btnStart = document.getElementById('btn-meeting-start');
+      if (btnStart) { btnStart.click(); console.log('[Voice] 会議開始音声送信完了'); }
+    }
+    this._ui.updateMicState('idle');
+    this._updateMeetingMicState('idle');
+  }, 50);
+};
+
+/** 会議マイクボタンのUI状態を同期更新 v1.0.1 新デザイン対応 */
+VoiceController.prototype._updateMeetingMicState = function(state) {
+  const btn = document.getElementById('btn-meeting-mic');
+  if (!btn) return;
+
+  if (state === 'listening') {
+    btn.style.background = 'linear-gradient(135deg, #ec4899, #a855f7)';
+    btn.style.borderColor = 'transparent';
+    btn.innerHTML = '🎤';
+    btn.style.animation = 'cocomi-breath-scale 3s ease-in-out infinite';
+    btn.style.boxShadow = '0 0 14px rgba(236,72,153,0.3)';
+  } else if (state === 'speaking') {
+    btn.style.background = 'linear-gradient(135deg, #a855f7, #6c5ce7)';
+    btn.style.borderColor = 'transparent';
+    btn.innerHTML = '🔊';
+    btn.style.animation = 'none';
+    btn.style.boxShadow = '0 0 12px rgba(108,92,231,0.4)';
+  } else if (state === 'error') {
+    btn.style.background = '#e74c3c';
+    btn.style.borderColor = '#e74c3c';
+    btn.innerHTML = '⚠️';
+    btn.style.animation = 'none';
+    btn.style.boxShadow = 'none';
+  } else {
+    btn.style.background = 'white';
+    btn.style.borderColor = 'var(--active-primary,#6c5ce7)';
+    btn.innerHTML = '🎤';
+    btn.style.animation = 'none';
+    btn.style.boxShadow = 'none';
+  }
+};
+
+// ═══════════════════════════════════════════
+// v1.1追加 - 音声ターン専有中判定（お散歩モード自動送信ゲート用・お姉ちゃんレポートNo.010 PoC A）
+// voice-input.js v2.5.0の_canResumeSTT()の否定形に「復帰中」「Whisper認識処理中」「発話キャプチャ中」を
+// 加えた広義busy判定。vision-ui-controller v1.5の自動送信ゲートが使う
+// ═══════════════════════════════════════════
+
+/** 音声ターン専有中の理由を返す（busyでなければ空文字）。理由文字列はスキップログの犯人特定用 */
+VoiceController.prototype.getVoiceTurnBusyReason = function() {
+  if (this._waitingForTTS) return 'waitingForTTS';
+  // v1.2追加 - バッファ待ち窓: 認識結果が無音確認3.5秒+確認0.5秒を経て送信されるまでの間。
+  // ここで画像ターンが発車するとChatCore.isProcessing競合で音声送信が静かに失敗する(実測事故)
+  if (this._buffer && this._buffer.length > 0) return 'bufferPending';
+  if (this._bufferTimer !== null) return 'bufferTimer';
+  if (this._confirmTimer !== null) return 'confirmPending';
+  const vs = this._voiceState;
+  if (vs && vs.isSpeaking()) return 'speaking';
+  if (vs && vs.isRecovering()) return 'recovering';
+  if (vs && vs.isTranscribing()) return 'transcribing';
+  if (this._playback.isPlaying()) return 'ttsPlaying';
+  if (this._playback.isQueuePlaying()) return 'ttsQueue';
+  const st = this._stt;
+  if (st && st._processing === true) return 'whisperProcessing';
+  if (st && st._hasVoiceStarted === true && typeof st.isListening === 'function' && st.isListening()) return 'userSpeaking';
+  return '';
+};
+
+/** 音声ターン専有中か（お姉ちゃんレポートNo.010 §7.2の公開API） */
+VoiceController.prototype.isVoiceTurnBusy = function() {
+  return this.getVoiceTurnBusyReason() !== '';
+};
+
+console.log('[VoiceSender] v1.2 mixin注入完了');
