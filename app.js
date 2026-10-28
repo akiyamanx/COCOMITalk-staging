@@ -5,6 +5,9 @@
 // v1.6 2026-03-10 - 設定関連をapp-settings.jsに分離（余裕確保）
 // v1.7 2026-04-05 - ワイワイモード: スタイル切替ボタン初期化追加
 // v2.0 2026-04-06 - ビジョンUI関連をvision-ui-controller.jsに分離（行数削減）
+// v2.1 2026-10-29 - 起動オープニング(opening.js)をスプラッシュの上に出す（失敗時は従来スプラッシュ）
+// v2.2 2026-10-29 - オープニング(スキップ含む)の後にロゴ画面(COCOMITalk)を1秒見せてからアプリ表示
+// 作成: 葵(Aoi) / 最終更新: 葵(Aoi), 2026-10-29
 'use strict';
 /** アプリケーションモジュール */
 const App = (() => {
@@ -67,17 +70,33 @@ const App = (() => {
     console.log('[App] COCOMITalk v1.7 起動完了');
   }
   // スプラッシュ画面の制御
+  // v2.1追加 - 起動オープニング(opening.js)をスプラッシュの上に重ねて出す。終了/スキップで即アプリ表示。
+  //   オープニングが未対応・初期化失敗・描画失敗のときは従来どおり1.5秒スプラッシュ→アプリ表示にフォールバック
   function _handleSplash() {
     const splash = document.getElementById('splash-screen');
     const app = document.getElementById('app');
-    setTimeout(() => {
+    // ロゴ画面(COCOMITalkの名前)をholdMsだけ見せてからフェードアウトしてアプリ表示
+    const showThenEnter = (holdMs) => setTimeout(() => {
       splash.classList.add('fade-out');
       // フェードアウト完了後にアプリ表示
       setTimeout(() => {
         splash.classList.add('hidden');
         app.classList.remove('hidden');
       }, 400);
-    }, 1500);
+    }, holdMs);
+    const legacy = () => showThenEnter(1500);
+    let opening = null;
+    try {
+      if (window.CocomiOpening && window.CocomiOpening.isSupported()) {
+        opening = window.CocomiOpening.start({
+          onEnd: (reason) => {
+            if (reason === 'error') { legacy(); return; }
+            showThenEnter(1000); // オープニング(スキップ含む)の後、ロゴ画面を1秒見せてからアプリへ
+          },
+        });
+      }
+    } catch (e) { console.warn('[App] オープニング開始失敗:', e); opening = null; }
+    if (!opening) legacy();
   }
   // 三姉妹タブの設定
   function _setupTabs() {
